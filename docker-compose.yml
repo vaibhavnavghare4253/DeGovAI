@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # SQL Server Database
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: dao-sqlserver
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: YourStrong@Passw0rd
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+      - ./database:/docker-entrypoint-initdb.d
+    networks:
+      - dao-network
+
+  # .NET Core API
+  backend-api:
+    build:
+      context: ./backend-api
+      dockerfile: Dockerfile
+    container_name: dao-backend-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=DAOGovernance;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;"
+      AI_SERVICE_URL: "http://ai-agents:8000"
+    ports:
+      - "5000:8080"
+    depends_on:
+      - sqlserver
+      - ai-agents
+    networks:
+      - dao-network
+
+  # Python AI Agent Service
+  ai-agents:
+    build:
+      context: ./ai-agents
+      dockerfile: Dockerfile
+    container_name: dao-ai-agents
+    environment:
+      DATABASE_URL: "mssql+pyodbc://sa:YourStrong@Passw0rd@sqlserver:1433/DAOGovernance?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      USE_LOCAL_MODEL: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ai-agents/models:/app/models
+    networks:
+      - dao-network
+
+  # Oracle/Bridge Service
+  oracle-service:
+    build:
+      context: ./oracle-service
+      dockerfile: Dockerfile
+    container_name: dao-oracle-service
+    environment:
+      BLOCKCHAIN_RPC: "http://hardhat-node:8545"
+      AI_SERVICE_URL: "http://ai-agents:8000"
+      BACKEND_API_URL: "http://backend-api:8080"
+    ports:
+      - "3001:3001"
+    depends_on:
+      - ai-agents
+      - backend-api
+    networks:
+      - dao-network
+
+  # Hardhat Local Blockchain Node
+  hardhat-node:
+    build:
+      context: ./blockchain
+      dockerfile: Dockerfile
+    container_name: dao-hardhat-node
+    ports:
+      - "8545:8545"
+    networks:
+      - dao-network
+    command: npx hardhat node
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dao-frontend
+    environment:
+      VITE_API_URL: "http://localhost:5000"
+      VITE_AI_API_URL: "http://localhost:8000"
+      VITE_BLOCKCHAIN_RPC: "http://localhost:8545"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend-api
+      - hardhat-node
+    networks:
+      - dao-network
+
+  # Redis for Caching
+  redis:
+    image: redis:7-alpine
+    container_name: dao-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - dao-network
+
+volumes:
+  sqlserver-data:
+
+networks:
+  dao-network:
+    driver: bridge
+
