@@ -8,9 +8,9 @@ python-dotenv==1.0.0
 pyodbc==5.0.1
 sqlalchemy==2.0.23
 
-# AI/ML - TensorFlow (compatible versions)
-tensorflow==2.15.0
-keras==2.15.0
+# AI/ML - TensorFlow (updated versions)
+tensorflow==2.20.0
+keras==2.20.0
 scikit-learn==1.3.2
 numpy==1.24.3
 pandas==2.1.3

@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+venv/
+env/
+
+# Build outputs
+dist/
+build/
+*.dll
+*.exe
+bin/
+obj/
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln.docstates
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+appsettings.Development.json
+
+# Blockchain
+blockchain/cache/
+blockchain/artifacts/
+blockchain/typechain-types/
+blockchain/.openzeppelin/
+
+# Database
+*.mdf
+*.ldf
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI Models (large files)
+ai-agents/models/downloaded/
+*.h5
+*.pkl
+*.bin
+
+# Test coverage
+coverage/
+.nyc_output/
+
