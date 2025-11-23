@@ -8,11 +8,13 @@ namespace AIDAOGovernance.API.Services;
 public class AIAnalysisService : DatabaseService, IAIAnalysisService
 {
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IProposalService _proposalService;
 
-    public AIAnalysisService(IConfiguration configuration, IHttpClientFactory httpClientFactory) 
+    public AIAnalysisService(IConfiguration configuration, IHttpClientFactory httpClientFactory, IProposalService proposalService) 
         : base(configuration) 
     {
         _httpClientFactory = httpClientFactory;
+        _proposalService = proposalService;
     }
 
     public async Task<AIAnalysisResponse> SaveAIAnalysisAsync(SaveAIAnalysisRequest request)
@@ -42,12 +44,20 @@ public class AIAnalysisService : DatabaseService, IAIAnalysisService
 
     public async Task<AIAnalysisResponse> RequestAIAnalysisAsync(AIAnalysisRequest request)
     {
-        // Call AI service to perform analysis
+        // First, fetch proposal details to get all required information
+        var proposalDetails = await _proposalService.GetProposalDetailsAsync(request.ProposalId);
+        
+        // Call AI service to perform analysis with complete proposal data
         var httpClient = _httpClientFactory.CreateClient("AIService");
         
         var requestData = new
         {
             proposal_id = request.ProposalId,
+            title = proposalDetails.Title,
+            description = proposalDetails.Description,
+            proposal_type = proposalDetails.ProposalType,
+            requested_amount = (double)proposalDetails.RequestedAmount,
+            submitter_address = proposalDetails.SubmitterAddress,
             analysis_type = request.AnalysisType
         };
 
@@ -61,7 +71,8 @@ public class AIAnalysisService : DatabaseService, IAIAnalysisService
         
         if (!response.IsSuccessStatusCode)
         {
-            throw new Exception($"AI service returned error: {response.StatusCode}");
+            var errorContent = await response.Content.ReadAsStringAsync();
+            throw new Exception($"AI service returned error: {response.StatusCode} - {errorContent}");
         }
 
         var responseContent = await response.Content.ReadAsStringAsync();
@@ -72,15 +83,15 @@ public class AIAnalysisService : DatabaseService, IAIAnalysisService
         {
             ProposalId = request.ProposalId,
             AnalysisType = request.AnalysisType,
-            RiskScore = aiResult?.risk_score,
-            FraudProbability = aiResult?.fraud_probability,
-            SentimentScore = aiResult?.sentiment_score,
-            RecommendedAction = aiResult?.recommended_action,
-            ConfidenceLevel = aiResult?.confidence_level,
+            RiskScore = aiResult?.risk_score != null ? Convert.ToDecimal(aiResult.risk_score) : null,
+            FraudProbability = aiResult?.fraud_probability != null ? Convert.ToDecimal(aiResult.fraud_probability) : null,
+            SentimentScore = aiResult?.sentiment_score != null ? Convert.ToDecimal(aiResult.sentiment_score) : null,
+            RecommendedAction = aiResult?.recommended_action?.ToString(),
+            ConfidenceLevel = aiResult?.confidence_level != null ? Convert.ToDecimal(aiResult.confidence_level) : null,
             KeyInsights = aiResult?.key_insights?.ToString(),
             DetailedAnalysis = aiResult?.detailed_analysis?.ToString(),
-            ModelUsed = aiResult?.model_used,
-            ProcessingTime = aiResult?.processing_time
+            ModelUsed = aiResult?.model_used?.ToString(),
+            ProcessingTime = aiResult?.processing_time != null ? Convert.ToInt32(aiResult.processing_time) : null
         };
 
         return await SaveAIAnalysisAsync(saveRequest);
